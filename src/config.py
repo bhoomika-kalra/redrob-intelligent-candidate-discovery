@@ -85,5 +85,26 @@ PREFERRED_LOCATIONS = [
     "chennai"
 ]
 
+RETRIEVAL_RANKING_SKILLS = [
+    "faiss",
+    "milvus",
+    "qdrant",
+    "pinecone",
+    "weaviate",
+    "bm25",
+    "rag",
+    "semantic search",
+    "vector search",
+    "information retrieval",
+    "learning to rank",
+    "ranking",
+    "retrieval",
+    "elasticsearch",
+    "opensearch",
+    "haystack",
+    "sentence transformers",
+    "embeddings"
+]
+
 IDEAL_MIN_EXPERIENCE = 5
 IDEAL_MAX_EXPERIENCE = 9

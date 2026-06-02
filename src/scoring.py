@@ -13,6 +13,7 @@ from config import (
     PREFERRED_LOCATIONS,
     IDEAL_MIN_EXPERIENCE,
     IDEAL_MAX_EXPERIENCE,
+    RETRIEVAL_RANKING_SKILLS,
 )
 from build_candidate_text import build_candidate_text
 from load_candidates import load_candidates
@@ -78,6 +79,37 @@ def score_skills(candidate: Dict[str, Any]) -> float:
         
     return score
 
+def score_retrieval_ranking(candidate):
+    """
+    Extra score for retrieval/ranking skills because the JD strongly focuses on
+    embeddings, retrieval, vector databases, hybrid search, and ranking systems.
+    """
+    score = 0.0
+    retrieval_skills = {s.lower().strip() for s in RETRIEVAL_RANKING_SKILLS}
+
+    for skill in candidate.get("skills", []):
+        if not isinstance(skill, dict):
+            continue
+
+        name = (skill.get("name") or "").lower().strip()
+        proficiency = (skill.get("proficiency") or "").lower().strip()
+        endorsements = skill.get("endorsements") or 0
+        duration = skill.get("duration_months") or 0
+
+        if name in retrieval_skills:
+            score += 12.0
+
+            if proficiency in ["advanced", "expert"]:
+                score += 5.0
+
+            if endorsements >= 20:
+                score += 3.0
+
+            if duration >= 24:
+                score += 3.0
+
+    return min(score, 100.0)
+
 
 def score_experience(candidate: Dict[str, Any]) -> float:
     """
@@ -95,7 +127,7 @@ def score_experience(candidate: Dict[str, Any]) -> float:
         return 100.0
 
     elif 3.0 <= experience < IDEAL_MIN_EXPERIENCE:
-        return 35.0
+        return 20.0
 
     elif IDEAL_MAX_EXPERIENCE < experience <= 12.0:
         return 75.0
@@ -286,8 +318,9 @@ def score_penalties(candidate: Dict[str, Any]) -> float:
     non_ai_keywords = [
         "marketing", "hr", "human resources", "recruiter", "accountant",
         "accounting", "sales", "civil engineer", "mechanical engineer",
-        "customer support", "customer success", "support representative",
-        "operations manager"
+        "customer support", "project manager", "product manager", "program manager", "customer success", "support representative",
+        "operations manager", "business analyst", "sales analyst", "operations analyst", "management analyst",
+        "financial analyst", "marketing analyst"
     ]
     
     seniority_penalty_keywords = [
@@ -344,6 +377,7 @@ def get_score_breakdown(candidate: Dict[str, Any]) -> Dict[str, float]:
     """
     return {
         "skills_score": score_skills(candidate),
+        "retrieval_ranking_score": score_retrieval_ranking(candidate),
         "experience_score": score_experience(candidate),
         "behavior_score": score_behavior(candidate),
         "location_score": score_location(candidate),

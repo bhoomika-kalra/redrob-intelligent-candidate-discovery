@@ -5,6 +5,8 @@ import numpy as np
 from docx import Document
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
+from career_intelligence import score_career_fit
+from retrieval_intelligence import score_retrieval_intelligence
 
 from load_candidates import load_candidates
 from scoring import get_score_breakdown
@@ -40,13 +42,16 @@ def load_candidate_map():
 
 def calculate_final_score(semantic_score, breakdown):
     final_score = (
-        0.35 * semantic_score
-        + 0.25 * breakdown["skills_score"]
-        + 0.15 * breakdown["experience_score"]
-        + 0.15 * breakdown["behavior_score"]
-        + 0.10 * breakdown["location_score"]
-        + breakdown["penalty_score"]
-    )
+    0.25 * semantic_score
+    + 0.12 * breakdown["skills_score"]
+    + 0.08 * breakdown["retrieval_ranking_score"]
+    + 0.20 * breakdown["career_fit_score"]
+    + 0.15 * breakdown["retrieval_intelligence_score"]
+    + 0.12 * breakdown["experience_score"]
+    + 0.05 * breakdown["behavior_score"]
+    + 0.03 * breakdown["location_score"]
+    + breakdown["penalty_score"]
+)
 
     return round(final_score, 4)
 
@@ -89,7 +94,20 @@ def main():
 
         semantic_score = float(scores[0][position]) * 100
         breakdown = get_score_breakdown(candidate)
+        breakdown["career_fit_score"] = score_career_fit(candidate)
+        breakdown["retrieval_intelligence_score"] = score_retrieval_intelligence(candidate)
         final_score = calculate_final_score(semantic_score, breakdown)
+        experience = candidate.get("profile", {}).get("years_of_experience", 0)
+        career_score = breakdown.get("career_fit_score", 0)
+        retrieval_score = breakdown.get("retrieval_intelligence_score", 0)
+
+        if experience < 4:
+            final_score -= 15
+        elif experience < 5:
+            final_score -= 8
+
+        if retrieval_score < 30 and career_score < 60:
+            final_score -= 6
         reasoning = generate_reasoning(candidate, breakdown)
 
         ranked_results.append({
