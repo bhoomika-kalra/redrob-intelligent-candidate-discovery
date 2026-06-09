@@ -3,6 +3,7 @@ from pathlib import Path
 
 import streamlit as st
 from PIL import Image
+import streamlit.components.v1 as components
 
 CURRENT_DIR = Path(__file__).resolve().parent
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -62,16 +63,48 @@ st.set_page_config(
     layout="wide",
 )
 
-st.sidebar.markdown("## DASHBOARD")
-
-page = st.sidebar.segmented_control(
-    "",
-    [
-        "Dashboard Overview",
-        "Candidate Explorer",
-    ],
-    default="Dashboard Overview",
+st.sidebar.markdown(
+    """
+    <h2 style="
+        margin-bottom:20px;
+        font-weight:800;
+        color:#1F2937;
+    ">
+        DASHBOARD
+    </h2>
+    """,
+    unsafe_allow_html=True,
 )
+
+if "page" not in st.session_state:
+    st.session_state.page = "Dashboard Overview"
+
+
+def go_dashboard():
+    st.session_state.page = "Dashboard Overview"
+
+
+def go_explorer():
+    st.session_state.page = "Candidate Explorer"
+
+
+st.sidebar.button(
+    "Dashboard Overview",
+    use_container_width=True,
+    type="primary" if st.session_state.page == "Dashboard Overview" else "secondary",
+    on_click=go_dashboard,
+    key="nav_dashboard",
+)
+
+st.sidebar.button(
+    "Candidate Explorer",
+    use_container_width=True,
+    type="primary" if st.session_state.page == "Candidate Explorer" else "secondary",
+    on_click=go_explorer,
+    key="nav_explorer",
+)
+
+page = st.session_state.page
 
 st.markdown(
     """
@@ -99,16 +132,25 @@ st.markdown(
         opacity: 0.9;
     }
     
-    div[data-testid="stSegmentedControl"] {
-        background-color: blue;
+    section[data-testid="stSidebar"] button {
+        border-radius: 12px !important;
+        border: 1px solid #D1D5DB !important;
+        background-color: white !important;
+        color: #1F2937 !important;
+        font-weight: 600 !important;
     }
 
-    div[data-testid="stSegmentedControl"] button {
-        border-radius: 12px;
-        padding: 10px 14px;
-        font-weight: 600;
+    section[data-testid="stSidebar"] button:hover {
+        border: 1px solid #6D28D9 !important;
+        color: #6D28D9 !important;
+        background-color: #F5F3FF !important;
     }
-    
+
+    section[data-testid="stSidebar"] button:focus {
+        border: 1px solid #6D28D9 !important;
+        box-shadow: none !important;
+        outline: none !important;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -122,7 +164,9 @@ header_col1, header_col2 = st.columns([1, 8])
 with header_col1:
     if logo_path.exists():
         logo = Image.open(logo_path)
-        st.image(logo, width=120)
+        logo = logo.resize((150, 150))
+
+        st.image(logo)
 
 with header_col2:
     st.markdown(
@@ -154,6 +198,7 @@ insights = build_recruiter_insights(df)
 # =========================
 if page == "Dashboard Overview":
 
+    # ===RECRUITER OVERVIEW===
     section_header("Recruiter Overview")
 
     metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
@@ -165,6 +210,7 @@ if page == "Dashboard Overview":
 
     st.divider()
 
+    # ===RECRUITER INSIGHTS===
     section_header("Recruiter Insights")
 
     insight_col1, insight_col2, insight_col3, insight_col4 = st.columns(4)
@@ -183,11 +229,12 @@ if page == "Dashboard Overview":
 
     st.divider()
 
+    # ===TOP TALENT PICKS===
     section_header("Top Talent Picks")
 
     top_3 = df.head(3)
-    talent_col1, talent_col2, talent_col3 = st.columns(3)
-    talent_cols = [talent_col1, talent_col2, talent_col3]
+
+    cards_html = ""
 
     for idx, (_, row) in enumerate(top_3.iterrows()):
         candidate = get_candidate(row["candidate_id"], candidate_map)
@@ -196,18 +243,160 @@ if page == "Dashboard Overview":
         title = profile.get("current_title", "Unknown")
         experience = profile.get("years_of_experience", "NA")
         score = round(float(row["score"]), 2)
+        fit = get_score_badge(score)
 
-        with talent_cols[idx]:
-            with st.container(border=True):
-                st.markdown(f"## Rank {int(row['rank'])}")
-                st.markdown(f"### {row['candidate_id']}")
-                st.write(f"**Role:** {title}")
-                st.write(f"**Experience:** {experience} years")
-                render_fit_box(score)
-                st.write(get_score_badge(score))
+        active_class = "active" if idx == 0 else ""
+
+        cards_html += f"""
+        <div class="option {active_class}">
+            <div class="shadow"></div>
+            <div class="label">
+                <div class="rank">Rank {int(row['rank'])}</div>
+                <div class="info">
+                    <div class="main">{row['candidate_id']}</div>
+                    <div class="sub">{title}</div>
+                    <div class="sub">Experience: {experience} years</div>
+                    <div class="score">Score: {score}</div>
+                    <div class="fit">{fit}</div>
+                </div>
+            </div>
+        </div>
+        """
+
+    components.html(
+        f"""
+        <style>
+        .options {{
+            display:flex;
+            gap:18px;
+            width:100%;
+            height:360px;
+            overflow:hidden;
+            font-family:Arial, sans-serif;
+        }}
+
+        .option {{
+            position:relative;
+            flex:0.8;
+            border-radius:32px;
+            background:linear-gradient(135deg,#1E3A8A,#6D28D9);
+            cursor:pointer;
+            transition:all .55s cubic-bezier(0.05, 0.61, 0.41, 0.95);
+            overflow:hidden;
+            color:white;
+            box-shadow:0 8px 24px rgba(0,0,0,0.12);
+            min-width:90px;
+        }}
+
+        .option:nth-child(2) {{
+            background:linear-gradient(135deg,#4338CA,#7C3AED);
+        }}
+
+        .option:nth-child(3) {{
+            background:linear-gradient(135deg,#2563EB,#1E40AF);
+        }}
+
+        .option.active {{
+            flex:4;
+            border-radius:36px;
+        }}
+
+        .option:not(.active) {{
+            flex:0.55;
+            border-radius:999px;
+        }}
+
+        .option:not(.active) .info {{
+            opacity:0;
+            transform:translateX(40px);
+            pointer-events:none;
+        }}
+
+        .option:not(.active) .rank {{
+            position:absolute;
+            bottom:24px;
+            left:50%;
+            transform:translateX(-50%);
+            white-space:nowrap;
+        }}
+
+        .shadow {{
+            position:absolute;
+            inset:0;
+            background:linear-gradient(to top,rgba(0,0,0,.45),rgba(0,0,0,.05));
+        }}
+
+        .label {{
+            position:absolute;
+            top:45px;
+            bottom:45px;
+            left:36px;
+            right:36px;
+            z-index:2;
+            display:flex;
+            flex-direction:column;
+            justify-content:space-between;
+        }}
+
+        .rank {{
+            background:white;
+            color:#6D28D9;
+            display:inline-block;
+            padding:7px 16px;
+            border-radius:999px;
+            font-weight:700;
+            margin-bottom:18px;
+            transition:all .45s ease;
+        }}
+
+        .info {{
+            transition:all .45s ease;
+        }}
+
+        .main {{
+            font-size:42px;
+            font-weight:800;
+            margin-bottom:12px;
+        }}
+
+        .sub {{
+            font-size:18px;
+            margin-bottom:8px;
+        }}
+
+        .score {{
+            margin-top:20px;
+            font-size:30px;
+            font-weight:800;
+        }}
+
+        .fit {{
+            margin-top:8px;
+            font-size:17px;
+            font-weight:700;
+        }}
+        </style>
+
+        <div class="options">
+            {cards_html}
+        </div>
+
+        <script>
+        const cards = document.querySelectorAll(".option");
+        cards.forEach(card => {{
+            card.addEventListener("click", () => {{
+                cards.forEach(c => c.classList.remove("active"));
+                card.classList.add("active");
+            }});
+        }});
+        </script>
+        """,
+        height=390,
+    )
 
     st.divider()
 
+    # ===RANKING ANALYTICS===
     section_header("Ranking Analytics")
 
     chart_col1, chart_col2 = st.columns(2)
@@ -224,10 +413,30 @@ if page == "Dashboard Overview":
 # =========================
 elif page == "Candidate Explorer":
 
-    st.sidebar.title("Candidate Controls")
+    # === CANDIDATE CONTROLS SIDEBAR ===
+
+    st.sidebar.markdown(
+        """
+        <div style="
+            background:white;
+            padding:18px;
+            border-radius:16px;
+            border:1px solid #E5E7EB;
+            margin-bottom:18px;
+        ">
+            <h2 style="margin:0;color:#1F2937;">Candidate Controls</h2>
+            <p style="margin:6px 0 0 0;color:#6B7280;font-size:14px;">
+                Explore ranked candidates and inspect profiles.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.sidebar.markdown("#### Filters")
 
     top_n = st.sidebar.slider(
-        "Leaderboard Count",
+        "Top Candidates to Display",
         min_value=10,
         max_value=100,
         value=25,
@@ -235,18 +444,24 @@ elif page == "Candidate Explorer":
     )
 
     min_score = st.sidebar.slider(
-        "Minimum Score",
+        "Minimum Match Score",
         min_value=float(df["score"].min()),
         max_value=float(df["score"].max()),
         value=float(df["score"].min()),
     )
 
+    st.sidebar.divider()
+
+    st.sidebar.markdown("#### Search")
+
     role_filter = st.sidebar.text_input(
-    "Role / Skill Filter",
+        "Role / Skill Search",
+        placeholder="AI Engineer, NLP, FAISS..."
     )
+
     candidate_search = st.sidebar.selectbox(
-    "Candidate ID Lookup",
-    ["Select Candidate"] + df["candidate_id"].tolist()
+        "Find Candidate",
+        ["Select Candidate"] + df["candidate_id"].tolist()
     )
 
     filtered_df = df[df["score"] >= min_score]
@@ -260,26 +475,29 @@ elif page == "Candidate Explorer":
 
     if candidate_search != "Select Candidate":
         filtered_df = filtered_df[
-        filtered_df["candidate_id"] == candidate_search
-    ]
+            filtered_df["candidate_id"] == candidate_search
+        ]
 
     filtered_df = filtered_df.head(top_n)
 
-    st.sidebar.success("Ranking file loaded successfully")
+    st.sidebar.divider()
+
+    st.sidebar.caption("Ranking data loaded")
 
     with open(ROOT_DIR / "outputs" / "final_submission.csv", "rb") as file:
         st.sidebar.download_button(
-            label="Download Final Submission CSV",
+            label="Download Ranked Candidates",
             data=file,
             file_name="final_submission.csv",
             mime="text/csv",
+            use_container_width=True,
         )
 
     if filtered_df.empty:
         st.warning("No candidates found for the selected filters.")
         st.stop()
 
-    # Candidate Leaderboard
+    # ===CANDIDATE LEADERBOARD===
     if "show_leaderboard" not in st.session_state:
         st.session_state.show_leaderboard = False
 
@@ -338,7 +556,7 @@ elif page == "Candidate Explorer":
 
     st.divider()
 
-    # Candidate Deep Dive
+    # ===CANDIDATE DEEP DIVE===
     section_header("Candidate Deep Dive")
 
     selected_candidate_id = st.selectbox(
@@ -417,7 +635,7 @@ elif page == "Candidate Explorer":
 
     st.divider()
 
-    # Candidate Comparison
+    # ===CANDIDATE COMPARISION===
     section_header("Candidate Comparison")
 
     compare_col1, compare_col2 = st.columns(2)
